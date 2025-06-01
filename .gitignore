@@ -48,3 +48,6 @@ __pycache__/
 /data/
 
 .venv/
+
+# Instead of the general .env* above, or in addition for more specificity:
+/scripts/.env # Ignore .env file specifically in the scripts directory

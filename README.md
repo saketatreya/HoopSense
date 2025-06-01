@@ -1,45 +1,48 @@
 # HoopSense 🏀
 
-HoopSense is a Next.js application designed to provide insights into NBA player and team statistics. Users can ask natural language queries (e.g., "Compare Steph Curry and Lillard's 3PT% in the 2021 playoffs") and receive summaries, comparisons, and (eventually) visualizations.
+HoopSense is a Next.js application designed to provide insights into NBA player and team statistics. Users can ask natural language queries and receive summaries, comparisons, and data visualizations.
 
 ## Features
 
-*   **Natural Language Queries**: Uses Google Gemini to understand user queries about NBA stats.
-*   **Stat Comparisons**: Displays key statistics for players or teams based on the query.
-*   **Data Visualization (Planned)**: Will include charts to visually represent statistical data.
-*   **Insights**: Provides LLM-generated summaries and interesting facts related to the query.
-*   **Local Data Fetching**: Includes a Python script to fetch NBA data using `nba_api` and store it locally as CSV files.
+*   **Natural Language Query to SQL**: Uses Google Gemini to translate natural language questions about basketball into SQL queries.
+*   **PostgreSQL Database Interaction**: Executes generated SQL against a PostgreSQL database to fetch data.
+*   **Data Visualization**: Generates charts from query results using Altair.
+*   **Dynamic DB Schema Prompting**: Automatically fetches the database schema to provide relevant context to the LLM.
+*   **Configurable Environment**: Uses `.env` files for managing API keys and database credentials for Python scripts.
+*   **Stats API Integration (Initial Mock)**: The frontend currently interacts with a Next.js API route that uses Gemini for query structuring and returns mocked data. Future integration can leverage the Python query engine.
+*   **NBA Data Fetching Script**: Includes a Python script (`fetch_nba_stats.py`) to fetch NBA data using `nba_api` and store it locally as CSV files for potential database population.
 
 ## Tech Stack
 
 *   **Frontend**: Next.js (App Router), React, TypeScript, Tailwind CSS
-*   **Backend API**: Next.js API Routes
-*   **Language Model**: Google Gemini 2.5 Flash
-*   **Data Fetching (Python Script)**: `nba_api`, `pandas`
+*   **Backend API (Current)**: Next.js API Routes (with Gemini for query structuring)
+*   **Language Model**: Google Gemini 1.5 Flash
+*   **Python Query Engine (`query_engine.py`)**: 
+    *   NL-to-SQL: Google Gemini
+    *   Database: PostgreSQL (`psycopg2`)
+    *   Charting: Altair
+    *   Environment Management: `python-dotenv`
+*   **Data Fetching Script (`fetch_nba_stats.py`)**: `nba_api`, `pandas`
 
 ## Project Structure
 
 ```
 hoopsense/
 ├── app/                    # Next.js App Router (frontend pages and API routes)
-│   ├── api/query/route.ts  # API endpoint for handling user queries
-│   └── page.tsx            # Homepage
-│   └── layout.tsx          # Main layout
-│   └── globals.css         # Global styles
+│   ├── api/query/route.ts  # API endpoint for user queries (currently mock/Gemini structure)
+│   └── ...                 # Frontend pages (page.tsx, layout.tsx)
 ├── components/             # Reusable React components
 ├── public/                 # Static assets
-├── scripts/                # Utility scripts
-│   └── fetch_nba_stats.py  # Python script to fetch NBA data
-├── data/                   # (Gitignored) Directory for storing fetched CSV data
-├── .env.local.example      # Example environment variables (create .env.local)
-├── .eslintrc.json          # ESLint configuration
+├── scripts/                # Python scripts
+│   ├── query_engine.py     # Converts NL to SQL, queries DB, generates charts
+│   ├── fetch_nba_stats.py  # Fetches NBA data to CSVs
+│   └── .env                # (Gitignored) Environment variables for Python scripts
+│   └── .env.example        # Example for .env file
+├── data/                   # (Gitignored) Directory for storing fetched CSV data from fetch_nba_stats.py
+├── .env.local              # (Gitignored) Environment variables for Next.js app (e.g., frontend API keys)
 ├── .gitignore              # Git ignore rules
-├── next.config.js          # Next.js configuration
-├── package.json            # Project dependencies and scripts
-├── postcss.config.js       # PostCSS configuration (for Tailwind)
-├── tailwind.config.ts      # Tailwind CSS configuration
-└── tsconfig.json           # TypeScript configuration
-└── README.md               # This file
+├── README.md               # This file
+└── ...                     # Other Next.js project files (package.json, tsconfig.json, etc.)
 ```
 
 ## Getting Started
@@ -48,8 +51,9 @@ hoopsense/
 
 *   Node.js (v18 or later recommended)
 *   npm (or yarn/pnpm)
-*   Python (v3.7 or later for the data fetching script)
+*   Python (v3.7 or later)
 *   `pip` (Python package installer)
+*   PostgreSQL server (running and accessible)
 
 ### Installation
 
@@ -64,41 +68,56 @@ hoopsense/
     npm install
     ```
 
-3.  **Set up environment variables:**
-    *   Create a `.env.local` file in the `hoopsense` directory by copying `.env.local.example` (if it existed - currently it does not, but it's good practice for API keys).
-    *   Add your Google Gemini API Key to `.env.local`:
-        ```
-        GEMINI_API_KEY=YOUR_GEMINI_API_KEY
-        ```
-    *   _Note: Currently, the Gemini API key is hardcoded in `app/api/query/route.ts`. It is strongly recommended to move this to an environment variable as described above for better security._
+3.  **Set up Next.js environment variables (Frontend):**
+    *   Create a `.env.local` file in the `hoopsense` root directory.
+    *   If your Next.js app needs any client-side accessible API keys in the future (not currently the case for the Gemini key used by the backend API route), you would add them here, prefixed with `NEXT_PUBLIC_`.
+    *   _Note: The Gemini API key for the `app/api/query/route.ts` is currently hardcoded. For production, this backend API key should be a true environment variable on the server, not exposed to the client and not in `.env.local`._
 
-4.  **Install Python dependencies (for data fetching script):**
+4.  **Set up Python script environment variables (Backend Query Engine):**
+    *   Navigate to the `hoopsense/scripts/` directory.
+    *   Create a `.env` file by copying `.env.example` (if you haven't already).
+        ```bash
+        cp .env.example .env 
+        ```
+    *   Edit `hoopsense/scripts/.env` and provide your actual:
+        *   `GEMINI_API_KEY`
+        *   `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` for your PostgreSQL database.
+        *   Optionally, set `LOG_LEVEL` (e.g., `DEBUG`, `INFO`).
+
+5.  **Install Python dependencies:**
+    From the `hoopsense` root directory (or directly within the `scripts` environment if you manage it separately):
     ```bash
-    pip install nba_api pandas
+    pip install google-generative-ai psycopg2-binary pandas altair python-dotenv nba_api
     ```
 
-### Running the Development Server
+### Running the Next.js Development Server (Frontend)
 
-1.  **Start the Next.js development server:**
+1.  From the `hoopsense` root directory:
     ```bash
     npm run dev
     ```
-    Open [http://localhost:3000](http://localhost:3000) in your browser.
+    Open [http://localhost:3000](http://localhost:3000) in your browser. The frontend will interact with the Next.js API route at `/api/query`.
 
-### Fetching NBA Data (Optional)
+### Running Python Scripts
 
-To populate the local `data/` directory with NBA statistics (which can be used for future local data processing features):
-
-1.  **Navigate to the scripts directory (if you are in `hoopsense` root):**
+1.  **Fetching NBA Data (to CSVs):**
+    From the `hoopsense` root directory:
     ```bash
-    # No, stay in the hoopsense root for the next command, 
-    # or run from anywhere with: python scripts/fetch_nba_stats.py 
+    python scripts/fetch_nba_stats.py
     ```
-2.  **Run the Python script:**
+    This populates the `hoopsense/data/` directory. Modify parameters in the script for different seasons/data types.
+
+2.  **Testing the NL-to-SQL Query Engine:**
+    Before running, ensure your `hoopsense/scripts/.env` is correctly configured and your PostgreSQL database is set up and accessible. The script will attempt to dynamically fetch your DB schema.
+    From the `hoopsense` root directory:
     ```bash
-    python scripts/fetch_nba_stats.py 
+    python scripts/query_engine.py
     ```
-    This will create CSV files in the `hoopsense/data/` directory. You can modify the `SEASON`, `SEASON_TYPE`, etc., parameters at the top of the `fetch_nba_stats.py` script to fetch different datasets.
+    This script will run test queries (defined in its `if __name__ == '__main__':` block), convert them to SQL using Gemini, execute against your database (or use a mock if DB creds in `.env` are still placeholders), and attempt to generate Altair chart JSONs.
+
+## Future Integration
+
+The Next.js API route (`app/api/query/route.ts`) currently uses Gemini for structuring queries and returns mocked data. A future step is to modify this API route to call the Python `query_engine.py` script (or a service built from it) to get real data and visualizations from the PostgreSQL database.
 
 ## Contributing
 
